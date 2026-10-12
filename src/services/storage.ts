@@ -1,444 +1,384 @@
-import { Ingredient, SubRecipe, MasterRecipe, Order } from '../types';
-import { computeIngredientCosts } from './calculator';
+import {
+  Ingredient,
+  PastryRecipe,
+  Order,
+  CountryConfig,
+  COUNTRIES,
+  ARScannedProduct
+} from '../types';
 
 const STORAGE_KEYS = {
-  INGREDIENTS: 'bakeometrics_ingredients_v1',
-  SUB_RECIPES: 'bakeometrics_sub_recipes_v1',
-  MASTER_RECIPES: 'bakeometrics_master_recipes_v1',
-  ORDERS: 'bakeometrics_orders_v1',
+  COUNTRY: 'bakeometrics_country_v2',
+  INGREDIENTS: 'bakeometrics_ingredients_v2',
+  RECIPES: 'bakeometrics_recipes_v2',
+  ORDERS: 'bakeometrics_orders_v2',
+  SETUP_DONE: 'bakeometrics_setup_done_v2',
 };
 
-// Realistic initial bakery inventory
+export const INITIAL_COUNTRY: CountryConfig = COUNTRIES[0]; // Poland (zł)
+
+export const SAMPLE_AR_PRODUCTS: ARScannedProduct[] = [
+  {
+    id: 'prod-milk',
+    name: 'Молоко цельное 1л',
+    emoji: '🥛',
+    category: 'dairy',
+    standardPackQty: 1,
+    standardPackUnit: 'l',
+    regionalPrices: { PL: 3.99, US: 3.49, EU: 1.29, KZ: 580, RU: 89, GB: 1.45 },
+  },
+  {
+    id: 'prod-cream',
+    name: 'Сливки 33% для взбивания 500мл',
+    emoji: '🍶',
+    category: 'dairy',
+    standardPackQty: 500,
+    standardPackUnit: 'ml',
+    regionalPrices: { PL: 8.50, US: 4.80, EU: 2.10, KZ: 1400, RU: 260, GB: 2.20 },
+  },
+  {
+    id: 'prod-butter',
+    name: 'Сливочное масло 82.5% 200г',
+    emoji: '🧈',
+    category: 'dairy',
+    standardPackQty: 200,
+    standardPackUnit: 'g',
+    regionalPrices: { PL: 7.20, US: 3.90, EU: 1.95, KZ: 1200, RU: 195, GB: 1.80 },
+  },
+  {
+    id: 'prod-cheese',
+    name: 'Сыр творожный Cremette 800г',
+    emoji: '🧀',
+    category: 'dairy',
+    standardPackQty: 800,
+    standardPackUnit: 'g',
+    regionalPrices: { PL: 19.90, US: 7.50, EU: 4.50, KZ: 3200, RU: 560, GB: 4.20 },
+  },
+  {
+    id: 'prod-choc',
+    name: 'Шоколад темный Callebaut 54% 1кг',
+    emoji: '🍫',
+    category: 'chocolate',
+    standardPackQty: 1,
+    standardPackUnit: 'kg',
+    regionalPrices: { PL: 54.00, US: 18.00, EU: 14.50, KZ: 8900, RU: 1650, GB: 13.50 },
+  },
+  {
+    id: 'prod-eggs',
+    name: 'Яйца куриные С0 (10 шт)',
+    emoji: '🥚',
+    category: 'dairy',
+    standardPackQty: 10,
+    standardPackUnit: 'pcs',
+    regionalPrices: { PL: 9.90, US: 3.99, EU: 2.40, KZ: 750, RU: 135, GB: 2.10 },
+  },
+  {
+    id: 'prod-flour',
+    name: 'Мука пшеничная экстра 2кг',
+    emoji: '🌾',
+    category: 'flour_dry',
+    standardPackQty: 2,
+    standardPackUnit: 'kg',
+    regionalPrices: { PL: 5.80, US: 3.20, EU: 1.60, KZ: 800, RU: 145, GB: 1.50 },
+  },
+  {
+    id: 'prod-berries',
+    name: 'Клубника свежая десертная 500г',
+    emoji: '🍓',
+    category: 'nuts_fillings',
+    standardPackQty: 500,
+    standardPackUnit: 'g',
+    regionalPrices: { PL: 14.50, US: 4.99, EU: 3.20, KZ: 2400, RU: 390, GB: 2.99 },
+  },
+];
+
 export const INITIAL_INGREDIENTS: Ingredient[] = [
   {
     id: 'ing-1',
-    name: 'Сливки 33% ультрапастеризованные',
+    name: 'Молоко 1л',
     category: 'dairy',
+    emoji: '🥛',
     purchaseQuantity: 1,
     purchaseUnit: 'l',
-    purchasePrice: 380,
+    purchasePrice: 3.99,
     baseUnit: 'ml',
     baseQuantity: 1000,
     wastePercent: 2,
-    baseCostPerUnit: 0.38,
-    effectiveCostPerUnit: 0.3877,
-    inStock: 4500,
-    minStockAlert: 2000,
-    notes: 'Остаток в пакете и на венчиках ~2%',
+    baseCostPerUnit: 0.00399,
+    effectiveCostPerUnit: 0.00407,
+    openPackRemainingPercent: 40, // 40% in open bottle = 400ml
+    sealedPacksCount: 1, // 1 sealed pack = 1000ml -> total inStock = 1400ml
+    inStock: 1400,
+    minStockAlert: 500,
+    notes: 'Открыто вчера, хранится в дверце',
     lastUpdated: new Date().toISOString(),
   },
   {
     id: 'ing-2',
-    name: 'Сыр творожный Cremette / Hochland',
+    name: 'Сливки 33% 500мл',
     category: 'dairy',
-    purchaseQuantity: 800,
-    purchaseUnit: 'g',
-    purchasePrice: 560,
-    baseUnit: 'g',
-    baseQuantity: 800,
-    wastePercent: 2,
-    baseCostPerUnit: 0.70,
-    effectiveCostPerUnit: 0.7142,
-    inStock: 3200,
-    minStockAlert: 1600,
-    notes: 'Стенки ванночки',
+    emoji: '🍶',
+    purchaseQuantity: 500,
+    purchaseUnit: 'ml',
+    purchasePrice: 8.50,
+    baseUnit: 'ml',
+    baseQuantity: 500,
+    wastePercent: 3,
+    baseCostPerUnit: 0.017,
+    effectiveCostPerUnit: 0.0175,
+    openPackRemainingPercent: 80, // 400ml
+    sealedPacksCount: 2, // 1000ml -> total 1400ml
+    inStock: 1400,
+    minStockAlert: 500,
+    notes: 'Для кремов и ганаша',
     lastUpdated: new Date().toISOString(),
   },
   {
     id: 'ing-3',
-    name: 'Масло сливочное 82.5% ГОСТ',
+    name: 'Сливочное масло 82.5% 200г',
     category: 'dairy',
-    purchaseQuantity: 500,
+    emoji: '🧈',
+    purchaseQuantity: 200,
     purchaseUnit: 'g',
-    purchasePrice: 420,
+    purchasePrice: 7.20,
     baseUnit: 'g',
-    baseQuantity: 500,
+    baseQuantity: 200,
     wastePercent: 1,
-    baseCostPerUnit: 0.84,
-    effectiveCostPerUnit: 0.8484,
-    inStock: 1500,
-    minStockAlert: 500,
+    baseCostPerUnit: 0.036,
+    effectiveCostPerUnit: 0.0363,
+    openPackRemainingPercent: 60, // 120g
+    sealedPacksCount: 1, // 200g -> total 320g
+    inStock: 320,
+    minStockAlert: 200,
     lastUpdated: new Date().toISOString(),
   },
   {
     id: 'ing-4',
-    name: 'Шоколад темный Callebaut 54.5%',
-    category: 'chocolate',
-    purchaseQuantity: 2.5,
-    purchaseUnit: 'kg',
-    purchasePrice: 3200,
+    name: 'Сыр творожный Cremette 800г',
+    category: 'dairy',
+    emoji: '🧀',
+    purchaseQuantity: 800,
+    purchaseUnit: 'g',
+    purchasePrice: 19.90,
     baseUnit: 'g',
-    baseQuantity: 2500,
-    wastePercent: 3,
-    baseCostPerUnit: 1.28,
-    effectiveCostPerUnit: 1.3195,
-    inStock: 4800,
-    minStockAlert: 1000,
-    notes: 'Утерь при темперировании/чашах ~3%',
+    baseQuantity: 800,
+    wastePercent: 2,
+    baseCostPerUnit: 0.0248,
+    effectiveCostPerUnit: 0.0253,
+    openPackRemainingPercent: 90, // 720g
+    sealedPacksCount: 0,
+    inStock: 720,
+    minStockAlert: 400,
     lastUpdated: new Date().toISOString(),
   },
   {
     id: 'ing-5',
-    name: 'Мука пшеничная в/с Французская Штучка',
-    category: 'flour_dry',
-    purchaseQuantity: 2,
+    name: 'Шоколад темный Callebaut 1кг',
+    category: 'chocolate',
+    emoji: '🍫',
+    purchaseQuantity: 1,
     purchaseUnit: 'kg',
-    purchasePrice: 160,
+    purchasePrice: 54.00,
     baseUnit: 'g',
-    baseQuantity: 2000,
-    wastePercent: 1,
-    baseCostPerUnit: 0.08,
-    effectiveCostPerUnit: 0.0808,
-    inStock: 8000,
-    minStockAlert: 3000,
+    baseQuantity: 1000,
+    wastePercent: 2,
+    baseCostPerUnit: 0.054,
+    effectiveCostPerUnit: 0.0551,
+    openPackRemainingPercent: 75, // 750g
+    sealedPacksCount: 1, // 1000g -> total 1750g
+    inStock: 1750,
+    minStockAlert: 500,
     lastUpdated: new Date().toISOString(),
   },
   {
     id: 'ing-6',
-    name: 'Сахарная пудра мелкого помола',
-    category: 'flour_dry',
-    purchaseQuantity: 1,
-    purchaseUnit: 'kg',
-    purchasePrice: 140,
-    baseUnit: 'g',
-    baseQuantity: 1000,
-    wastePercent: 1,
-    baseCostPerUnit: 0.14,
-    effectiveCostPerUnit: 0.1414,
-    inStock: 3500,
-    minStockAlert: 1000,
+    name: 'Яйца куриные С0 (10 шт)',
+    category: 'dairy',
+    emoji: '🥚',
+    purchaseQuantity: 10,
+    purchaseUnit: 'pcs',
+    purchasePrice: 9.90,
+    baseUnit: 'pcs',
+    baseQuantity: 10,
+    wastePercent: 10,
+    baseCostPerUnit: 0.99,
+    effectiveCostPerUnit: 1.10,
+    openPackRemainingPercent: 70, // 7 шт
+    sealedPacksCount: 1, // 10 шт -> total 17 шт
+    inStock: 17,
+    minStockAlert: 6,
     lastUpdated: new Date().toISOString(),
   },
   {
     id: 'ing-7',
-    name: 'Фундук цельный в скорлупе',
-    category: 'nuts_fillings',
-    purchaseQuantity: 1,
+    name: 'Мука пшеничная экстра 2кг',
+    category: 'flour_dry',
+    emoji: '🌾',
+    purchaseQuantity: 2,
     purchaseUnit: 'kg',
-    purchasePrice: 650,
+    purchasePrice: 5.80,
     baseUnit: 'g',
-    baseQuantity: 1000,
-    wastePercent: 32, // Nuts lose 32% during peeling & roasting
-    baseCostPerUnit: 0.65,
-    effectiveCostPerUnit: 0.9558,
-    inStock: 1800,
-    minStockAlert: 500,
-    notes: 'Колотый вес: скорлупа и шелуха 32%',
-    lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: 'ing-8',
-    name: 'Пюре клубничное без сахара Boiron',
-    category: 'nuts_fillings',
-    purchaseQuantity: 1,
-    purchaseUnit: 'kg',
-    purchasePrice: 980,
-    baseUnit: 'g',
-    baseQuantity: 1000,
-    wastePercent: 4,
-    baseCostPerUnit: 0.98,
-    effectiveCostPerUnit: 1.0208,
-    inStock: 2000,
+    baseQuantity: 2000,
+    wastePercent: 1,
+    baseCostPerUnit: 0.0029,
+    effectiveCostPerUnit: 0.00293,
+    openPackRemainingPercent: 85, // 1700g
+    sealedPacksCount: 1, // 2000g -> total 3700g
+    inStock: 3700,
     minStockAlert: 1000,
     lastUpdated: new Date().toISOString(),
   },
-  {
-    id: 'ing-9',
-    name: 'Яйцо куриное С0 (десяток)',
-    category: 'dairy',
-    purchaseQuantity: 10,
-    purchaseUnit: 'pcs',
-    purchasePrice: 135,
-    baseUnit: 'pcs',
-    baseQuantity: 10,
-    wastePercent: 11, // Egg shells are ~11%
-    baseCostPerUnit: 13.5,
-    effectiveCostPerUnit: 15.1685,
-    inStock: 40,
-    minStockAlert: 20,
-    notes: 'Скорлупа составляет ~11% веса яйца',
-    lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: 'ing-10',
-    name: 'Пектин NH термообратимый',
-    category: 'flour_dry',
-    purchaseQuantity: 100,
-    purchaseUnit: 'g',
-    purchasePrice: 450,
-    baseUnit: 'g',
-    baseQuantity: 100,
-    wastePercent: 1,
-    baseCostPerUnit: 4.5,
-    effectiveCostPerUnit: 4.5454,
-    inStock: 350,
-    minStockAlert: 100,
-    lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: 'ing-11',
-    name: 'Премиум коробка для торта с окном + лента',
-    category: 'packaging',
-    purchaseQuantity: 10,
-    purchaseUnit: 'pcs',
-    purchasePrice: 1800,
-    baseUnit: 'pcs',
-    baseQuantity: 10,
-    wastePercent: 0,
-    baseCostPerUnit: 180,
-    effectiveCostPerUnit: 180,
-    inStock: 25,
-    minStockAlert: 10,
-    lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: 'ing-12',
-    name: 'Усиленная подложка золотая 26 см',
-    category: 'packaging',
-    purchaseQuantity: 20,
-    purchaseUnit: 'pcs',
-    purchasePrice: 1200,
-    baseUnit: 'pcs',
-    baseQuantity: 20,
-    wastePercent: 0,
-    baseCostPerUnit: 60,
-    effectiveCostPerUnit: 60,
-    inStock: 30,
-    minStockAlert: 10,
-    lastUpdated: new Date().toISOString(),
-  },
 ];
 
-// Initial sub-recipes
-export const INITIAL_SUB_RECIPES: SubRecipe[] = [
+export const INITIAL_RECIPES: PastryRecipe[] = [
   {
-    id: 'sub-1',
-    name: 'Шифоновый ванильный бисквит (16 см)',
-    category: 'biscuit',
-    yieldWeight: 450, // 450g net biscuit
-    items: [
-      { id: 'sbi-1', ingredientId: 'ing-9', name: 'Яйцо куриное С0', amount: 4, unit: 'pcs' },
-      { id: 'sbi-2', ingredientId: 'ing-6', name: 'Сахарная пудра', amount: 130, unit: 'g' },
-      { id: 'sbi-3', ingredientId: 'ing-5', name: 'Мука пшеничная в/с', amount: 140, unit: 'g' },
-      { id: 'sbi-4', ingredientId: 'ing-3', name: 'Масло сливочное 82.5%', amount: 35, unit: 'g' },
+    id: 'rec-1',
+    title: 'Бенто-торт «Клубничный Бархат»',
+    emoji: '🍓',
+    category: 'Бенто-торты',
+    prepTime: '2.5 ч',
+    yieldInfo: 'Диаметр 12 см (450г)',
+    sourceType: 'link',
+    sourceName: 'Instagram Reels @di_sweet_cake',
+    sourceUrl: 'https://instagram.com/reels/cake_bento',
+    ingredients: [
+      { id: 'ri-1', name: 'Яйца С0', amount: 2, unit: 'шт', inStock: true },
+      { id: 'ri-2', name: 'Мука высший сорт', amount: 70, unit: 'г', inStock: true },
+      { id: 'ri-3', name: 'Сахарная пудра', amount: 65, unit: 'г', inStock: true },
+      { id: 'ri-4', name: 'Сыр творожный Cremette', amount: 250, unit: 'г', inStock: true },
+      { id: 'ri-5', name: 'Сливки 33%', amount: 100, unit: 'мл', inStock: true },
+      { id: 'ri-6', name: 'Клубника свежая', amount: 120, unit: 'г', inStock: false },
     ],
-    instructions: 'Взбить белки с пудрой до устойчивых пиков. Аккуратно ввести желтки и просеянную муку. Выпекать 35-40 мин при 165°C.',
+    steps: [
+      'Взбить белки с пудрой до устойчивых воздушных пиков.',
+      'Выпекать 25 мин при 165°C в кольце 12 см.',
+      'Взбить холодный сыр со сливками до шелкового крема.',
+      'Собрать в ланч-боксе с клубничной прослойкой и милой надписью.',
+    ],
+    estimatedCost: 18.50,
+    recommendedPrice: 55.00,
+    allInFridge: false,
+    missingItems: ['Клубника свежая (120г)'],
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'sub-2',
-    name: 'Шелковый Крем-чиз на сливках',
-    category: 'cream',
-    yieldWeight: 650, // 650g net cream
-    items: [
-      { id: 'sbi-5', ingredientId: 'ing-2', name: 'Сыр творожный Cremette', amount: 400, unit: 'g' },
-      { id: 'sbi-6', ingredientId: 'ing-1', name: 'Сливки 33%', amount: 180, unit: 'ml' },
-      { id: 'sbi-7', ingredientId: 'ing-6', name: 'Сахарная пудра', amount: 80, unit: 'g' },
+    id: 'rec-2',
+    title: 'Шоколадный брауни с фундуком',
+    emoji: '🍫',
+    category: 'К чаю / Десерты',
+    prepTime: '45 мин',
+    yieldInfo: 'Форма 20х20 (8 порций)',
+    sourceType: 'camera',
+    sourceName: 'Фото из блокнота (бабушкин рецепт)',
+    ingredients: [
+      { id: 'ri-7', name: 'Шоколад темный Callebaut', amount: 200, unit: 'г', inStock: true },
+      { id: 'ri-8', name: 'Сливочное масло 82.5%', amount: 120, unit: 'г', inStock: true },
+      { id: 'ri-9', name: 'Яйца С0', amount: 3, unit: 'шт', inStock: true },
+      { id: 'ri-10', name: 'Мука экстра', amount: 80, unit: 'г', inStock: true },
     ],
-    instructions: 'Охладить ингредиенты до 4°C. Взбивать на средней скорости миксера до плотной глянцевой массы без пузырей.',
+    steps: [
+      'Растопить шоколад с маслом на водяной бане.',
+      'Яйца взбить с сахаром до кремовой пены.',
+      'Аккуратно соединить и выпекать ровно 22 минуты при 175°C (внутри влажный центр!).',
+    ],
+    estimatedCost: 22.80,
+    recommendedPrice: 65.00,
+    allInFridge: true,
+    missingItems: [],
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'sub-3',
-    name: 'Клубничное конфи с пектином NH',
-    category: 'filling',
-    yieldWeight: 280, // 280g
-    items: [
-      { id: 'sbi-8', ingredientId: 'ing-8', name: 'Пюре клубничное Boiron', amount: 250, unit: 'g' },
-      { id: 'sbi-9', ingredientId: 'ing-6', name: 'Сахарная пудра', amount: 35, unit: 'g' },
-      { id: 'sbi-10', ingredientId: 'ing-10', name: 'Пектин NH', amount: 6, unit: 'g' },
+    id: 'rec-3',
+    title: 'Капкейки «Нежная Ваниль» (6 шт)',
+    emoji: '🧁',
+    category: 'Капкейки',
+    prepTime: '1.5 ч',
+    yieldInfo: '6 штучек с шапочками',
+    sourceType: 'file',
+    sourceName: 'Файл Cupcakes_Master.pdf',
+    ingredients: [
+      { id: 'ri-11', name: 'Сливочное масло', amount: 100, unit: 'г', inStock: true },
+      { id: 'ri-12', name: 'Мука', amount: 150, unit: 'г', inStock: true },
+      { id: 'ri-13', name: 'Молоко', amount: 80, unit: 'мл', inStock: true },
+      { id: 'ri-14', name: 'Сыр творожный', amount: 200, unit: 'г', inStock: true },
     ],
-    instructions: 'Нагреть пюре до 40°C, всыпать пектин с пудрой дождем. Прокипятить 1 минуту, разлить в кольцо 14 см и заморозить.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'sub-4',
-    name: 'Шоколадный ганаш на темном Callebaut',
-    category: 'cream',
-    yieldWeight: 350,
-    items: [
-      { id: 'sbi-11', ingredientId: 'ing-4', name: 'Шоколад темный Callebaut 54.5%', amount: 180, unit: 'g' },
-      { id: 'sbi-12', ingredientId: 'ing-1', name: 'Сливки 33%', amount: 140, unit: 'ml' },
-      { id: 'sbi-13', ingredientId: 'ing-3', name: 'Масло сливочное 82.5%', amount: 30, unit: 'g' },
+    steps: [
+      'Взбить мягкое масло, ввести яйцо и муку с молоком.',
+      'Выпекать в капсулах 18-20 мин при 170°C.',
+      'Отсадить высокие шапочки крема через насадку 1М.',
     ],
-    instructions: 'Сливки довести до кипения, вылить на шоколад, пробить блендером с эмульсией, ввести мягкое масло при 35°C.',
+    estimatedCost: 14.20,
+    recommendedPrice: 42.00,
+    allInFridge: true,
+    missingItems: [],
     createdAt: new Date().toISOString(),
   },
 ];
 
-// Initial master recipes
-export const INITIAL_MASTER_RECIPES: MasterRecipe[] = [
-  {
-    id: 'master-1',
-    name: 'Торт «Клубничный Бархат»',
-    category: 'Торты бисквитные',
-    baseDiameter: 16,
-    baseHeight: 11,
-    baseWeightGrams: 1400,
-    description: 'Нежный ванильный шифоновый бисквит, крем-чиз на 33% сливках и яркая прослойка из клубничного конфи с пектином.',
-    subRecipeItems: [
-      { id: 'msr-1', subRecipeId: 'sub-1', name: 'Шифоновый ванильный бисквит (16 см)', amountWeight: 450 },
-      { id: 'msr-2', subRecipeId: 'sub-2', name: 'Шелковый Крем-чиз на сливках', amountWeight: 650 },
-      { id: 'msr-3', subRecipeId: 'sub-3', name: 'Клубничное конфи с пектином NH', amountWeight: 280 },
-    ],
-    directIngredients: [
-      { id: 'mdi-1', ingredientId: 'ing-11', name: 'Премиум коробка для торта с окном + лента', amount: 1, unit: 'pcs' },
-      { id: 'mdi-2', ingredientId: 'ing-12', name: 'Усиленная подложка золотая 26 см', amount: 1, unit: 'pcs' },
-    ],
-    prepTimeHours: 3.5,
-    laborHourlyRate: 1100,
-    equipmentAmortizationFixed: 220,
-    equipmentAmortizationPercent: 6,
-    packagingCost: 0, // Packaging accounted in directIngredients
-    targetMarginPercent: 52,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'master-2',
-    name: 'Торт «Трюфельный Ореховый Взрыв»',
-    category: 'Шоколадные десерты',
-    baseDiameter: 16,
-    baseHeight: 10,
-    baseWeightGrams: 1550,
-    description: 'Шоколадные влажные коржи, крем-чиз, обжаренный фундук с карамелью и покрытие ганашем Callebaut.',
-    subRecipeItems: [
-      { id: 'msr-4', subRecipeId: 'sub-1', name: 'Шифоновый бисквит', amountWeight: 450 },
-      { id: 'msr-5', subRecipeId: 'sub-4', name: 'Шоколадный ганаш Callebaut', amountWeight: 350 },
-      { id: 'msr-6', subRecipeId: 'sub-2', name: 'Крем-чиз на сливках', amountWeight: 500 },
-    ],
-    directIngredients: [
-      { id: 'mdi-3', ingredientId: 'ing-7', name: 'Фундук обжаренный чистый', amount: 180, unit: 'g' },
-      { id: 'mdi-4', ingredientId: 'ing-11', name: 'Премиум коробка для торта', amount: 1, unit: 'pcs' },
-      { id: 'mdi-5', ingredientId: 'ing-12', name: 'Усиленная подложка', amount: 1, unit: 'pcs' },
-    ],
-    prepTimeHours: 4.0,
-    laborHourlyRate: 1200,
-    equipmentAmortizationFixed: 280,
-    equipmentAmortizationPercent: 6,
-    packagingCost: 0,
-    targetMarginPercent: 55,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-// Initial orders in CRM Kanban
 export const INITIAL_ORDERS: Order[] = [
   {
-    id: 'ord-101',
-    orderNumber: '#BOM-2401',
-    customerName: 'Екатерина Романова',
-    customerPhone: '+7 (916) 432-88-19',
-    customerTelegram: '@kate_romanova',
-    customerNotes: 'Юбилей мамы 50 лет. Надпись золотом «С юбилеем, любимая мама!». Доставить до 14:00.',
-    status: 'in_progress',
-    recipeId: 'master-1',
-    recipeName: 'Торт «Клубничный Бархат»',
-    targetDiameter: 22,
-    baseDiameter: 16,
-    panScaleFactor: 1.8906,
-    calculatedWeightGrams: 2650,
-    deadline: new Date(Date.now() + 28 * 3600 * 1000).toISOString(),
-    deliveryType: 'courier',
-    deliveryAddress: 'г. Москва, ул. Тверская 14, кв. 82',
-    rawFoodCost: 1980,
-    laborCost: 3850,
-    overheadCost: 340,
-    packagingCost: 240,
-    totalPrimeCost: 6410,
-    sellingPrice: 13500,
-    prepaymentAmount: 7000,
-    remainingAmount: 6500,
-    netProfit: 7090,
-    marginPercent: 52.5,
-    createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'ord-102',
-    orderNumber: '#BOM-2402',
-    customerName: 'Артем Васильев',
-    customerPhone: '+7 (903) 774-12-05',
-    customerTelegram: '@artem_v',
-    customerNotes: 'Для детского праздника. Без ягодных косточек, акцент на шоколадный вкус.',
-    status: 'procurement',
-    recipeId: 'master-2',
-    recipeName: 'Торт «Трюфельный Ореховый Взрыв»',
-    targetDiameter: 20,
-    baseDiameter: 16,
-    panScaleFactor: 1.5625,
-    calculatedWeightGrams: 2420,
-    deadline: new Date(Date.now() + 52 * 3600 * 1000).toISOString(),
-    deliveryType: 'pickup',
-    rawFoodCost: 2450,
-    laborCost: 4800,
-    overheadCost: 420,
-    packagingCost: 240,
-    totalPrimeCost: 7910,
-    sellingPrice: 16800,
-    prepaymentAmount: 8400,
-    remainingAmount: 8400,
-    netProfit: 8890,
-    marginPercent: 52.9,
-    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'ord-103',
-    orderNumber: '#BOM-2403',
+    id: 'ord-1',
+    orderNumber: '#01',
     customerName: 'Алина Соколова',
-    customerPhone: '+7 (925) 901-33-44',
-    customerTelegram: '@alina_sweet',
-    customerNotes: 'Свадебный кенди-бар, дегустационный торт 16 см.',
-    status: 'ready_for_pickup',
-    recipeId: 'master-1',
-    recipeName: 'Торт «Клубничный Бархат»',
-    targetDiameter: 16,
-    baseDiameter: 16,
-    panScaleFactor: 1.0,
-    calculatedWeightGrams: 1400,
-    deadline: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
-    deliveryType: 'pickup',
-    rawFoodCost: 1045,
-    laborCost: 3850,
-    overheadCost: 280,
-    packagingCost: 240,
-    totalPrimeCost: 5415,
-    sellingPrice: 11500,
-    prepaymentAmount: 6000,
-    remainingAmount: 5500,
-    netProfit: 6085,
-    marginPercent: 52.9,
-    createdAt: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
+    customerContact: '@alina_sweet',
+    recipeTitle: 'Бенто-торт «Клубничный Бархат»',
+    details: 'Надпись «Happy 25th!» розовым кремом. К 15:00 в пятницу.',
+    deadlineDate: 'Пятница, 15:00',
+    status: 'baking',
+    totalPrice: 60.00,
+    prepayment: 30.00,
+    remaining: 30.00,
+    stickerColor: 'rose',
+    createdAt: new Date().toISOString(),
   },
   {
-    id: 'ord-104',
-    orderNumber: '#BOM-2404',
-    customerName: 'Михаил Ковалев',
-    customerPhone: '+7 (915) 112-90-80',
-    customerNotes: 'Корпоративный заказ к пятнице. Упаковка с логотипом компании.',
-    status: 'prepayment_received',
-    recipeId: 'master-2',
-    recipeName: 'Торт «Трюфельный Ореховый Взрыв»',
-    targetDiameter: 24,
-    baseDiameter: 16,
-    panScaleFactor: 2.25,
-    calculatedWeightGrams: 3500,
-    deadline: new Date(Date.now() + 96 * 3600 * 1000).toISOString(),
-    deliveryType: 'courier',
-    deliveryAddress: 'г. Москва, БЦ «Белые Сады», Лесная 7',
-    rawFoodCost: 3520,
-    laborCost: 4800,
-    overheadCost: 490,
-    packagingCost: 240,
-    totalPrimeCost: 9050,
-    sellingPrice: 19500,
-    prepaymentAmount: 10000,
-    remainingAmount: 9500,
-    netProfit: 10450,
-    marginPercent: 53.6,
+    id: 'ord-2',
+    orderNumber: '#02',
+    customerName: 'Мама Миши (Ольга)',
+    customerContact: '+48 512 890 123',
+    recipeTitle: 'Капкейки «Нежная Ваниль» (12 шт)',
+    details: 'Детский праздник в садике, декор без орехов!',
+    deadlineDate: 'Суббота, 11:00',
+    status: 'new',
+    totalPrice: 85.00,
+    prepayment: 40.00,
+    remaining: 45.00,
+    stickerColor: 'peach',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'ord-3',
+    orderNumber: '#03',
+    customerName: 'Виктория Ковальска',
+    customerContact: '@viki_krawczyk',
+    recipeTitle: 'Шоколадный брауни с фундуком',
+    details: 'Подарочная коробочка с белой атласной лентой.',
+    deadlineDate: 'Воскресенье, 17:00',
+    status: 'decorating',
+    totalPrice: 70.00,
+    prepayment: 70.00,
+    remaining: 0.00,
+    stickerColor: 'lavender',
     createdAt: new Date().toISOString(),
   },
 ];
 
-export class AppRepository {
+export class AppStorage {
+  static getCountry(): CountryConfig {
+    const raw = localStorage.getItem(STORAGE_KEYS.COUNTRY);
+    if (!raw) return INITIAL_COUNTRY;
+    try {
+      const code = JSON.parse(raw);
+      return COUNTRIES.find((c) => c.code === code) || INITIAL_COUNTRY;
+    } catch {
+      return INITIAL_COUNTRY;
+    }
+  }
+
+  static saveCountry(country: CountryConfig): void {
+    localStorage.setItem(STORAGE_KEYS.COUNTRY, JSON.stringify(country.code));
+  }
+
   static getIngredients(): Ingredient[] {
     const raw = localStorage.getItem(STORAGE_KEYS.INGREDIENTS);
     if (!raw) {
@@ -456,38 +396,21 @@ export class AppRepository {
     localStorage.setItem(STORAGE_KEYS.INGREDIENTS, JSON.stringify(items));
   }
 
-  static getSubRecipes(): SubRecipe[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.SUB_RECIPES);
+  static getRecipes(): PastryRecipe[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.RECIPES);
     if (!raw) {
-      this.saveSubRecipes(INITIAL_SUB_RECIPES);
-      return INITIAL_SUB_RECIPES;
+      this.saveRecipes(INITIAL_RECIPES);
+      return INITIAL_RECIPES;
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return INITIAL_SUB_RECIPES;
+      return INITIAL_RECIPES;
     }
   }
 
-  static saveSubRecipes(items: SubRecipe[]): void {
-    localStorage.setItem(STORAGE_KEYS.SUB_RECIPES, JSON.stringify(items));
-  }
-
-  static getMasterRecipes(): MasterRecipe[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.MASTER_RECIPES);
-    if (!raw) {
-      this.saveMasterRecipes(INITIAL_MASTER_RECIPES);
-      return INITIAL_MASTER_RECIPES;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return INITIAL_MASTER_RECIPES;
-    }
-  }
-
-  static saveMasterRecipes(items: MasterRecipe[]): void {
-    localStorage.setItem(STORAGE_KEYS.MASTER_RECIPES, JSON.stringify(items));
+  static saveRecipes(items: PastryRecipe[]): void {
+    localStorage.setItem(STORAGE_KEYS.RECIPES, JSON.stringify(items));
   }
 
   static getOrders(): Order[] {
@@ -507,10 +430,19 @@ export class AppRepository {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(items));
   }
 
-  static resetToDefault(): void {
+  static isSetupDone(): boolean {
+    return localStorage.getItem(STORAGE_KEYS.SETUP_DONE) === 'true';
+  }
+
+  static setSetupDone(): void {
+    localStorage.setItem(STORAGE_KEYS.SETUP_DONE, 'true');
+  }
+
+  static resetAll(): void {
+    localStorage.removeItem(STORAGE_KEYS.COUNTRY);
     localStorage.removeItem(STORAGE_KEYS.INGREDIENTS);
-    localStorage.removeItem(STORAGE_KEYS.SUB_RECIPES);
-    localStorage.removeItem(STORAGE_KEYS.MASTER_RECIPES);
+    localStorage.removeItem(STORAGE_KEYS.RECIPES);
     localStorage.removeItem(STORAGE_KEYS.ORDERS);
+    localStorage.removeItem(STORAGE_KEYS.SETUP_DONE);
   }
 }

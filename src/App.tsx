@@ -4,157 +4,169 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Header, ActiveTab } from './components/Header';
-import { KanbanModule } from './components/KanbanModule';
-import { WarehouseModule } from './components/WarehouseModule';
-import { RecipeTreeModule } from './components/RecipeTreeModule';
-import { EconomicsModule } from './components/EconomicsModule';
-import { ReceiptScanModal } from './components/ReceiptScanModal';
+import { Header } from './components/Header';
+import { BottomNavBar, MainTab } from './components/BottomNavBar';
+import { FridgeModule } from './components/FridgeModule';
+import { RecipesModule } from './components/RecipesModule';
+import { OrdersModule } from './components/OrdersModule';
+import { CountryPickerModal } from './components/CountryPickerModal';
 import {
+  CountryConfig,
   Ingredient,
-  SubRecipe,
-  MasterRecipe,
-  Order
+  PastryRecipe,
+  Order,
+  COUNTRIES
 } from './types';
 import {
-  AppRepository,
+  AppStorage,
+  INITIAL_COUNTRY,
   INITIAL_INGREDIENTS,
-  INITIAL_SUB_RECIPES,
-  INITIAL_MASTER_RECIPES,
+  INITIAL_RECIPES,
   INITIAL_ORDERS
 } from './services/storage';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('kanban');
-  const [isReceiptScanOpen, setIsReceiptScanOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<MainTab>('fridge');
+  const [country, setCountry] = useState<CountryConfig>(() => AppStorage.getCountry());
+  const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
+  const [isInitialWelcome, setIsInitialWelcome] = useState(false);
 
-  // Core application domain state
+  // Core State
   const [ingredients, setIngredients] = useState<Ingredient[]>(() =>
-    AppRepository.getIngredients()
+    AppStorage.getIngredients()
   );
-  const [subRecipes, setSubRecipes] = useState<SubRecipe[]>(() =>
-    AppRepository.getSubRecipes()
-  );
-  const [masterRecipes, setMasterRecipes] = useState<MasterRecipe[]>(() =>
-    AppRepository.getMasterRecipes()
+  const [recipes, setRecipes] = useState<PastryRecipe[]>(() =>
+    AppStorage.getRecipes()
   );
   const [orders, setOrders] = useState<Order[]>(() =>
-    AppRepository.getOrders()
+    AppStorage.getOrders()
   );
 
-  // Persistence triggers
+  useEffect(() => {
+    if (!AppStorage.isSetupDone()) {
+      setIsInitialWelcome(true);
+      setIsCountryModalOpen(true);
+    }
+  }, []);
+
+  // Handlers for persistence
+  const handleSelectCountry = (newCountry: CountryConfig) => {
+    setCountry(newCountry);
+    AppStorage.saveCountry(newCountry);
+    AppStorage.setSetupDone();
+    setIsInitialWelcome(false);
+    setIsCountryModalOpen(false);
+  };
+
   const handleUpdateIngredients = (updated: Ingredient[]) => {
     setIngredients(updated);
-    AppRepository.saveIngredients(updated);
+    AppStorage.saveIngredients(updated);
   };
 
-  const handleUpdateSubRecipes = (updated: SubRecipe[]) => {
-    setSubRecipes(updated);
-    AppRepository.saveSubRecipes(updated);
-  };
-
-  const handleUpdateMasterRecipes = (updated: MasterRecipe[]) => {
-    setMasterRecipes(updated);
-    AppRepository.saveMasterRecipes(updated);
+  const handleUpdateRecipes = (updated: PastryRecipe[]) => {
+    setRecipes(updated);
+    AppStorage.saveRecipes(updated);
   };
 
   const handleUpdateOrders = (updated: Order[]) => {
     setOrders(updated);
-    AppRepository.saveOrders(updated);
+    AppStorage.saveOrders(updated);
   };
 
-  const handleUpdateSingleMasterRecipe = (updated: MasterRecipe) => {
-    const list = masterRecipes.map((r) => (r.id === updated.id ? updated : r));
-    handleUpdateMasterRecipes(list);
+  const handleBakeRecipeForOrder = (recipe: PastryRecipe) => {
+    // Quickly creates an order from a recipe and switches to orders tab
+    const newOrd: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber: `#0${orders.length + 1}`,
+      customerName: 'Новый клиент',
+      customerContact: '@instagram_direct',
+      recipeTitle: recipe.title,
+      recipeId: recipe.id,
+      details: `Выпечка по рецепту: ${recipe.yieldInfo}`,
+      deadlineDate: 'Завтра, 14:00',
+      status: 'new',
+      totalPrice: recipe.recommendedPrice,
+      prepayment: Math.round(recipe.recommendedPrice * 0.5),
+      remaining: Math.round(recipe.recommendedPrice * 0.5),
+      stickerColor: 'rose',
+      createdAt: new Date().toISOString(),
+    };
+    handleUpdateOrders([newOrd, ...orders]);
+    setActiveTab('orders');
   };
 
   const handleResetData = () => {
-    if (confirm('Сбросить все данные к демонстрационным фабричным настройкам?')) {
-      AppRepository.resetToDefault();
+    if (confirm('Сбросить данные приложения к начальным настройкам?')) {
+      AppStorage.resetAll();
+      setCountry(INITIAL_COUNTRY);
       setIngredients(INITIAL_INGREDIENTS);
-      setSubRecipes(INITIAL_SUB_RECIPES);
-      setMasterRecipes(INITIAL_MASTER_RECIPES);
+      setRecipes(INITIAL_RECIPES);
       setOrders(INITIAL_ORDERS);
     }
   };
 
+  const activeOrdersCount = orders.filter((o) => o.status !== 'delivered').length;
+
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200">
-      {/* Top Bar following Top Bar Contract */}
+    <div className="min-h-screen bg-[#FDF8F5] text-[#2D2530] flex flex-col font-sans selection:bg-rose-200 selection:text-rose-900">
+      {/* Top Header */}
       <Header
+        country={country}
+        onOpenCountryPicker={() => setIsCountryModalOpen(true)}
+        onResetData={handleResetData}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onQuickReceiptScan={() => setIsReceiptScanOpen(true)}
-        onResetData={handleResetData}
       />
 
-      {/* Main Viewport Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 md:py-8">
-        {activeTab === 'kanban' && (
-          <KanbanModule
-            orders={orders}
-            masterRecipes={masterRecipes}
-            ingredients={ingredients}
-            subRecipes={subRecipes}
-            onUpdateOrders={handleUpdateOrders}
-            onOpenRecipeBuilder={() => setActiveTab('recipes')}
-          />
-        )}
-
-        {activeTab === 'warehouse' && (
-          <WarehouseModule
+      {/* Main Content Area (Max width optimized for mobile & tablet comfort with breathing room) */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-5 md:py-7">
+        {activeTab === 'fridge' && (
+          <FridgeModule
+            country={country}
             ingredients={ingredients}
             onUpdateIngredients={handleUpdateIngredients}
+            onOpenCountryPicker={() => setIsCountryModalOpen(true)}
           />
         )}
 
         {activeTab === 'recipes' && (
-          <RecipeTreeModule
+          <RecipesModule
+            country={country}
+            recipes={recipes}
             ingredients={ingredients}
-            subRecipes={subRecipes}
-            masterRecipes={masterRecipes}
-            onUpdateSubRecipes={handleUpdateSubRecipes}
-            onUpdateMasterRecipes={handleUpdateMasterRecipes}
-            onSelectRecipeForOrder={(recipe, targetDiameter) => {
-              setActiveTab('kanban');
-            }}
+            onUpdateRecipes={handleUpdateRecipes}
+            onBakeRecipeForOrder={handleBakeRecipeForOrder}
           />
         )}
 
-        {activeTab === 'economics' && (
-          <EconomicsModule
-            masterRecipes={masterRecipes}
-            ingredients={ingredients}
-            subRecipes={subRecipes}
-            onUpdateMasterRecipe={handleUpdateSingleMasterRecipe}
+        {activeTab === 'orders' && (
+          <OrdersModule
+            country={country}
+            orders={orders}
+            recipes={recipes}
+            onUpdateOrders={handleUpdateOrders}
           />
         )}
       </main>
 
-      {/* Global Quick Receipt Scan Modal */}
-      <ReceiptScanModal
-        isOpen={isReceiptScanOpen}
-        onClose={() => setIsReceiptScanOpen(false)}
-        onAddIngredients={(newItems) => {
-          handleUpdateIngredients([...newItems, ...ingredients]);
-        }}
+      {/* Ergonomic Floating Bottom Navigation Bar */}
+      <BottomNavBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        ordersBadgeCount={activeOrdersCount}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-6 px-6 text-center text-xs text-slate-500 no-print">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>
-            Bake-O-Metrics Confectionery ERP System · Архитектура чистых вычислений и ИИ-анализа
-          </span>
-          <div className="flex items-center gap-4 text-slate-400">
-            <span>Нормализация 1 мл / 1 г</span>
-            <span>·</span>
-            <span>Канбан-CRM</span>
-            <span>·</span>
-            <span>Геометрический скейлинг Ø</span>
-          </div>
-        </div>
-      </footer>
+      {/* Country and Currency Setup Modal */}
+      <CountryPickerModal
+        isOpen={isCountryModalOpen}
+        selectedCountry={country}
+        onSelectCountry={handleSelectCountry}
+        onClose={() => {
+          setIsCountryModalOpen(false);
+          setIsInitialWelcome(false);
+        }}
+        isInitialSetup={isInitialWelcome}
+      />
     </div>
   );
 }
