@@ -1,0 +1,6 @@
+{
+  "name": "Bake-O-Metrics: AI ERP System",
+  "description": "Профессиональная ERP-система для кондитеров с ИИ-парсингом чеков, древовидными рецептами, геометрическим перерасчетом форм, скрытыми костами и CRM-канбаном.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
